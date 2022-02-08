@@ -1,0 +1,13 @@
+---
+title: "Bobcat Life Table"
+author: "Nikole Vannest, Teague Tran, Alyssa Kibbe"
+date: "2/8/2022"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Start adding life table data here
+
