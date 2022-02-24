@@ -13,8 +13,8 @@ knitr::opts_chunk$set(echo = TRUE)
 # parameters and state variables
 T_exp <- 25  # defines the total number of time steps of the simulation
 i <- 2 #indexing variable that ensures the starting populatin size is retained in the vector of populatin sizes
-n0_exp <- 40 #Starting population size (state variable)
-birth.average <- 1.01 # average number of new offspring from an individual in a population in the next time step
+n0_exp <- 43 #Starting population size (state variable)
+birth.average <- 2.6 # average number of new offspring from an individual in a population in the next time step
 prob.death <- 0.8 # probability an individual dies before the next time step
 
 #random variables
