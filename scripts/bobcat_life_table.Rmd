@@ -7,11 +7,60 @@ output: html_document
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+library(knitr)
+library(here)
+
+options(scipen=999)  # Disable Scientific Notation
 ```
 
 ## Start adding life table data here
 
-```{r }
+```{r read in data}
+life_table <- read.csv("")
+```
+
+```{r Build Life Table from Example}
+#Create new columns of variables for calculation
+life_table <- life_table %>%
+  mutate("lx*mx" = lx*mx, # Survivorship * fecundity -> Used to calculate (R0)
+         "x*lx*mx"=Age*lx*mx, # Used to calculate (G)
+         "Lx"=(lx+lead(lx))/2, # Avg survivorship
+         "Lx"=replace(Lx, 30, 0),   # change to 30 for oldest age class
+         "ex"=rev(cumsum(rev(Lx)))/lx, # Used to calculate growth rate (r)
+         "R0"=sum(lx*mx),# Net Reproductive Rate
+         "G"=sum(Age*lx*mx)/R0, # Generation time
+         "approx.r"=log(R0)/G #approximating growth rate
+  )
+
+# Use approximated growth rate to find actual growth rate
+df <- as.data.frame(life_table)
+r <- mean(df$approx.r) #approximated growth rate from df
+x <- sum(exp(-r*df$Age)*df$`lx*mx`) # 
+while (abs(x-1) >= 0.000001) {
+  if (x-1>0){
+    r <- r+0.00000001
+  }
+  else{
+    r <- r-0.00000001
+  }
+  x <- sum(exp(-r*df$Age)*df$`lx*mx`)
+  r
+}
+
+#use r to fill out the remainder of the life table
+life_table <- life_table %>%
+  mutate(
+    "approx.r" = log(R0)/G, 
+    "r" = r,
+    "Vx" = rev(cumsum(rev(exp(-r*Age)*lx*mx)))/exp(-r*Age)*lx, #Reproductive value
+    "lx*mx*e^-rx" = lx*mx*exp(-r*Age), # Used to get growth rate
+    "approx.Vx" = rev(cumsum(rev(exp(-approx.r*Age)*lx*mx)))/exp(-approx.r*Age)*lx, # Approximate reproductive value from an approximated r value
+    "approx.lx*mx*e^-rx" = lx*mx*exp(-approx.r*Age) # intermediate to get growth rate
+  )
+
+# Put in a table so we can see what r is
+kable(life_table, format="markdown", align="c", digits = 3)
 
 ```
 
