@@ -1,0 +1,40 @@
+---
+title: "IBM"
+author: "Nikole Vannest, Alyssa Kibbe & Teague Tran"
+date: "2/24/2022"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+### Placeholder code - fill in with our data
+```{r}
+# parameters and state variables
+T_exp <- 25  # defines the total number of time steps of the simulation
+i <- 2 #indexing variable that ensures the starting populatin size is retained in the vector of populatin sizes
+n0_exp <- 40 #Starting population size (state variable)
+birth.average <- 1.01 # average number of new offspring from an individual in a population in the next time step
+prob.death <- 0.8 # probability an individual dies before the next time step
+
+#random variables
+set.seed(124)
+birth <- function(t){sum(rpois(t, lambda = birth.average))}
+death <- function(t){rbinom(1, size = t, prob = prob.death)}
+
+#Single run of an IBM with random birth and death.  Note, IF/ELSE statement is used to ensure populations that go to zero stay at extinct
+ibm_exp = rep(n0_exp, T_exp) # vector to store observations
+while(i <= T_exp){
+if (ibm_exp[i - 1] > 0) {
+  ibm_exp[i] <- ibm_exp[i - 1] + birth(ibm_exp[i - 1]) - death(ibm_exp[i - 1])
+  i <- i + 1
+} else {
+  ibm_exp[i] <- 0
+  i <-  i+1
+}}
+
+#always plot your data
+plot(ibm_exp, type = "b", main="Individual Base Model - Exponential", 
+     xlab="time step", ylab="observed value", pch=16, col="blue") #Simple plot of the observed values over the time steps
+```
+

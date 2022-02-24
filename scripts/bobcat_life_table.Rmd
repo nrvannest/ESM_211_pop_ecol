@@ -10,6 +10,7 @@ knitr::opts_chunk$set(echo = TRUE)
 library(tidyverse)
 library(knitr)
 library(here)
+library(kableExtra)
 
 options(scipen=999)  # Disable Scientific Notation
 ```
@@ -17,7 +18,8 @@ options(scipen=999)  # Disable Scientific Notation
 ## Start adding life table data here
 
 ```{r read in data}
-life_table <- read.csv("")
+life_table <- read.csv(here("data", "bobcat_life_table.csv"), header = T)
+colnames(life_table) <- c("Age", "lx", "mx")
 ```
 
 ```{r Build Life Table from Example}
@@ -26,7 +28,7 @@ life_table <- life_table %>%
   mutate("lx*mx" = lx*mx, # Survivorship * fecundity -> Used to calculate (R0)
          "x*lx*mx"=Age*lx*mx, # Used to calculate (G)
          "Lx"=(lx+lead(lx))/2, # Avg survivorship
-         "Lx"=replace(Lx, 30, 0),   # change to 30 for oldest age class
+         "Lx"=replace(Lx, 12, 0),   # change to 30 for oldest age class
          "ex"=rev(cumsum(rev(Lx)))/lx, # Used to calculate growth rate (r)
          "R0"=sum(lx*mx),# Net Reproductive Rate
          "G"=sum(Age*lx*mx)/R0, # Generation time
