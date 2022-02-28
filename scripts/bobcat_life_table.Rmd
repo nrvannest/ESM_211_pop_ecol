@@ -11,6 +11,7 @@ library(tidyverse)
 library(knitr)
 library(here)
 library(kableExtra)
+library(ggplot2)
 
 options(scipen=999)  # Disable Scientific Notation
 ```
@@ -37,6 +38,28 @@ bobcat_data$survival <- surv_data
 ```{r fit survival to curve}
 # smooth survival data as curve
 
+ggplot(data = bobcat_data,
+       aes(x = age_years,
+       y = survival))+
+  geom_point()
+
+plot(bobcat_data$age_years, bobcat_data$survival,
+     main="Bobcat Survival Analysis",
+     xlab = "Age (years)",
+     ylab = "Survival (proportion)")
+
+#making the best fit line from our data
+line_fit = lm(log(bobcat_data$survival)~ #only take the log(y)
+                bobcat_data$age_years)
+summary(line_fit)
+
+factor = line_fit$coefficients["bobcat_data$age_years"]
+coeff = exp(line_fit$coefficients["(Intercept)"])
+
+fit_eq = paste("y=",coeff, "exp(",factor,"x)")
+#text(20,10,fit_eq)
+#adds to the plot above
+curve(coeff*exp(factor*x),0,14, add = TRUE, col="blue")
 
 # pick random points between age intervals (loop)
 
