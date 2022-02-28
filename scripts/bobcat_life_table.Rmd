@@ -33,57 +33,86 @@ for(i in 1:nrow(bobcat_data)){
 
 # Add to bobcat_data data frame
 bobcat_data$survival <- surv_data
+colnames(bobcat_data) <- c("age", 
+                           "mx",
+                           "count",
+                           "survival")
 ```
 
 ```{r fit survival to curve}
 # smooth survival data as curve
 
 ggplot(data = bobcat_data,
-       aes(x = age_years,
+       aes(x = age,
        y = survival))+
   geom_point()
 
-plot(bobcat_data$age_years, bobcat_data$survival,
+plot(bobcat_data$age, bobcat_data$survival,
      main="Bobcat Survival Analysis",
      xlab = "Age (years)",
      ylab = "Survival (proportion)")
 
 #making the best fit line from our data
 line_fit = lm(log(bobcat_data$survival)~ #only take the log(y)
-                bobcat_data$age_years)
+                bobcat_data$age)
 summary(line_fit)
 
-factor = line_fit$coefficients["bobcat_data$age_years"]
+factor = line_fit$coefficients["bobcat_data$age"]
 coeff = exp(line_fit$coefficients["(Intercept)"])
 
 fit_eq = paste("y=",coeff, "exp(",factor,"x)")
 #text(20,10,fit_eq)
 #adds to the plot above
 curve(coeff*exp(factor*x),0,14, add = TRUE, col="blue")
-
-# pick random points between age intervals (loop)
-
-
 ```
 
+### Create list of survival data points to sample from
+```{r}
+# loop through survival to make list of potential points
+
+# Remove the first row
+bobcat_survival <- bobcat_data[-1,]
+
+# Create list to loop into
+list_survival <- list()
+
+# Use loop to create list of lists containing potential survival data from age a to b
+for(i in 1:12){
+a <- seq(from = bobcat_data$survival[i], to = bobcat_data$survival[i+1], by = -0.001)
+list_survival[[i]] <- a
+}
+```
 
 ### Placeholder for future data
-Needs to be reworked to loop
 ```{r Life Table Data}
-library(tidyverse)
-library(knitr)
+# Create multiple life tables with sampled survival data
+survival_sampled <- list()
+for(a in 1:12){
+  for(i in length(list_survival[[a]])){
+    survival_sampled[[a]] <- sample(list_survival[[a]], size = 5, replace = T)
+  }
+}
 
-options(scipen=999)  # Disable Scientific Notation
+# Needs to be fixed from here down #########################
+# Find a way to loop the new survival data into life tables
+life_table <- array(data = NA, dim = c(12, 7, 5))
+temp <- c()
+for(a in 1:12){
+  for(b in 1:100){
+    temp[a] <- survival_sampled[[a]][b]*bobcat_survival$mx[a]
+    life_table[,a,b] <- temp
+  }
+}
 
-#Creat new columns of variables for calculation
+############# from class ########################3
 life_table <- bobcat_data %>%
   mutate("lx*mx" = lx*mx, # Survivorship * fecundity -> Used to calculate (R0)
-         "x*lx*mx"=Age*lx*mx, # Used to calculate (G)
+         "x*lx*mx"=age*lx*mx, # Used to calculate (G)
          "Lx"=(lx+lead(lx))/2, # Avg survivorship
-         "Lx"=replace(Lx, 30, 0),   # change to 30 for oldest age class
+         "Lx"=replace(Lx, 14, 0),   # change to 30 for oldest age class
          "ex"=rev(cumsum(rev(Lx)))/lx, # Used to calculate growth rate (r)
          "R0"=sum(lx*mx),# Net Reproductive Rate
-         "G"=sum(Age*lx*mx)/R0, # Generation time
+         "G"=sum(age*lx*mx)/R0, # Generation time
          "approx.r"=log(R0)/G #approximating growth rate
   )
 
