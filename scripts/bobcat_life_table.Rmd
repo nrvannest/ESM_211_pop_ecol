@@ -63,7 +63,12 @@ coeff = exp(line_fit$coefficients["(Intercept)"])
 fit_eq = paste("y=",coeff, "exp(",factor,"x)")
 #text(20,10,fit_eq)
 #adds to the plot above
-curve(coeff*exp(factor*x),0,14, add = TRUE, col="blue")
+#create function called survivorship
+survivorship <- function(x){
+  coeff*exp(factor*x)
+}
+#add to plot above
+curve(survivorship,0,14, add = TRUE, col="blue")
 ```
 
 ### Create list of survival data points to sample from
@@ -156,4 +161,75 @@ life_table %>% ggplot(aes(x = Age)) +
   ggtitle("Survivorship of Yellowstone NP Bison") +
   ylab("Survivorship") 
 ```
+```{r}
+#Teague's approach
+
+# Use loop to create list of lists containing potential survival data from age a to b
+for(i in 1:13){
+a <- seq(from = bobcat_data$survival[i], to = bobcat_data$survival[i+1], by = -0.001)
+list_survival[[i]] <- a
+}
+
+# Create multiple life tables with sampled survival data
+survival_sampled <- list()
+for(a in 1:13){
+  for(i in length(list_survival[[a]])){
+    survival_sampled[[a]] <- sample(list_survival[[a]], size = 5, replace = T)
+  }
+}
+
+#create data frame for sampled survival data
+
+survival_sampled_df <- data.frame(survival_sampled) 
+
+#give it column names
+colnames(survival_sampled_df) <- c("0_1",
+                            "1_2", 
+                           "2_3",
+                           "3_4",
+                           "4_5",
+                           "5_6",
+                           "6_7",
+                           "7_8",
+                           "8_9",
+                           "9_10",
+                           "10_11",
+                           "11_12",
+                           "12_13"
+                           )
+# transpose table so that it'll look like the bobcats dataframe
+transposed_df<- t(survival_sampled_df)
+
+#combine data column 
+bobcat_lifetable <- cbind(bobcat_survival, transposed_df)
+
+rlist <- list()
+
+#create iteration to calculate r; we are only interested in the R values! 
+
+for(i in 5:ncol(bobcat_lifetable)) { #code to iterate across columns; goes from fifth column until it finishes!
+  lxmx <- bobcat_lifetable$mx* bobcat_lifetable[ , i] 
+  R0 <- sum(lxmx)
+  G <- sum(bobcat_lifetable$age*lxmx)/R0
+  approx.r <- log(R0)/G
+  r <- mean(approx.r) #approximated growth rate from df
+  y <- sum(exp(-r*bobcat_lifetable$age)*lxmx) # 
+  
+while (abs(y-1) >= 0.000001) {
+  if (y-1>0){
+    r <- r+0.00000001
+  }
+  else{
+    r <- r-0.00000001
+  }
+  y <- sum(exp(-r*bobcat_lifetable$age)*lxmx)
+  r
+}
+  rlist <- append(rlist, r) #create a list of r values from the stuff; a range of these values will give you the good good
+  
+}
+
+
+```
+
 
