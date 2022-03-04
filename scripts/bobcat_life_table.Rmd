@@ -4,7 +4,7 @@ author: "Nikole Vannest, Teague Tran, Alyssa Kibbe"
 date: "2/8/2022"
 output: html_document
 ---
-
+## S
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 library(tidyverse)
@@ -16,12 +16,13 @@ library(ggplot2)
 options(scipen=999)  # Disable Scientific Notation
 ```
 
-## Start adding life table data here
+### Start adding life table data here
 
 ```{r read in data}
 bobcat_data <- read.csv(here("data", "bobcats_lifetable.csv"), header = T)
 ```
 
+### Calculate Survivorship
 ```{r convert to survivorship}
 # create empty list
 surv_data <- c()
@@ -39,6 +40,7 @@ colnames(bobcat_data) <- c("age",
                            "survival")
 ```
 
+### Fit survival to a curve
 ```{r fit survival to curve}
 # smooth survival data as curve
 
@@ -81,8 +83,6 @@ bobcat_survival <- bobcat_data[-1,]
 # Create list to loop into
 list_survival <- list()
 
-#Teague's approach
-
 # Use loop to create list of lists containing potential survival data from age a to b
 for(i in 1:13){
 a <- seq(from = bobcat_data$survival[i], to = bobcat_data$survival[i+1], by = -0.001)
@@ -93,7 +93,7 @@ list_survival[[i]] <- a
 survival_sampled <- list()
 for(a in 1:13){
   for(i in length(list_survival[[a]])){
-    survival_sampled[[a]] <- sample(list_survival[[a]], size = 5, replace = T)
+    survival_sampled[[a]] <- sample(list_survival[[a]], size = 100, replace = T)
   }
 }
 
@@ -121,11 +121,24 @@ transposed_df<- t(survival_sampled_df)
 
 #combine data column 
 bobcat_lifetable <- cbind(bobcat_survival, transposed_df)
+```
 
-rlist <- list()
+### Reinsert 0-year survival
+```{r Insert first row of 1's}
+#create sequence to reinstert 1's for year 0 in first row
+ones <- seq(to = 1, from = 1, length.out = ncol(bobcat_lifetable))
 
+# add correct data to the first 3 columns
+ones[1:3] <- c(0, 0, 1517)
+
+# bind to the bobcat_lifetable
+bobcat_lifetable <- rbind(ones, bobcat_lifetable)
+```
+
+### Create Life Table
+```{r Create Life Table}
 #create iteration to calculate r; we are only interested in the R values! 
-
+rlist <- list()
 for(i in 5:ncol(bobcat_lifetable)) { #code to iterate across columns; goes from fifth column until it finishes!
   lxmx <- bobcat_lifetable$mx* bobcat_lifetable[ , i] 
   R0 <- sum(lxmx)
@@ -147,11 +160,9 @@ while (abs(y-1) >= 0.000001) {
   rlist <- append(rlist, r) #create a list of r values from the stuff; a range of these values will give you the good good
   
 }
-
-
 ```
 
-## Plotting the different modeled population
+### Plotting the different modeled population
 ```{r}
 ggplot(data = bobcat_lifetable,
        aes(x = age,
@@ -162,4 +173,83 @@ ggplot(data = bobcat_lifetable,
                  y = 1))
 ```
 
+### Calculate hunting and roadkill survival
+```{r calculate hunting and roadkill survival}
+# Use bobcat survival and subtract hunting and road kill mortality pressure
 
+hunting_low <- 0.1 #low hunting pressure
+hunting_high <- 0.3 #high hunting pressure
+
+roadkill_low <- 0.06 #low roadkill pressure
+roadkill_high <- 0.2 #high roadkill pressure
+
+#subtract low pressures from bobcat survival data
+low_pressure_survival <- bobcat_lifetable[,5:104]-(hunting_low+roadkill_low)
+low_pressure_survival <- cbind(bobcat_lifetable[,1:4], low_pressure_survival)
+
+#remove negative data points
+low_pressure_survival[low_pressure_survival<0] <- 0
+
+#subract high pressures from bobact survival data
+high_pressure_survival <- bobcat_lifetable[,5:104]-(hunting_high+roadkill_high)
+high_pressure_survival <- cbind(bobcat_lifetable[,1:4], high_pressure_survival)
+
+#remove negative data points
+high_pressure_survival[high_pressure_survival<0] <- 0
+```
+
+### Incorporate Low hunting and roadkill pressure to life table
+```{r incorporate hunting and road kill to get growth rate for low_pressure}
+#create iteration to calculate r; we are only interested in the R values! 
+rlist_low_pressure <- list()
+for(i in 5:ncol(low_pressure_survival)) { #code to iterate across columns; goes from fifth column until it finishes!
+  lxmx <- low_pressure_survival$mx* low_pressure_survival[ , i] 
+  R0 <- sum(lxmx)
+  G <- sum(low_pressure_survival$age*lxmx)/R0
+  approx.r <- log(R0)/G
+  r <- mean(approx.r) #approximated growth rate from df
+  y <- sum(exp(-r*low_pressure_survival$age)*lxmx) # 
+  
+while (abs(y-1) >= 0.000001) {
+  if (y-1>0){
+    r <- r+0.00000001
+  }
+  else{
+    r <- r-0.00000001
+  }
+  y <- sum(exp(-r*low_pressure_survival$age)*lxmx)
+  r
+}
+  rlist_low_pressure <- append(rlist_low_pressure, r) #create a list of r values from the stuff; a range of these values will give you the good good
+  
+}
+
+```
+
+### Incorporate high hunting and road kill pressure to life table 
+```{r incorporate hunting and road kill to get growth rate for low_pressure}
+#create iteration to calculate r; we are only interested in the R values! 
+rlist_high_pressure <- list()
+for(i in 5:ncol(high_pressure_survival)) { #code to iterate across columns; goes from fifth column until it finishes!
+  lxmx <- high_pressure_survival$mx* high_pressure_survival[ , i] 
+  R0 <- sum(lxmx)
+  G <- sum(high_pressure_survival$age*lxmx)/R0
+  approx.r <- log(R0)/G
+  r <- mean(approx.r) #approximated growth rate from df
+  y <- sum(exp(-r*high_pressure_survival$age)*lxmx) # 
+  
+while (abs(y-1) >= 0.000001) {
+  if (y-1>0){
+    r <- r+0.00000001
+  }
+  else{
+    r <- r-0.00000001
+  }
+  y <- sum(exp(-r*high_pressure_survival$age)*lxmx)
+  r
+}
+  rlist_high_pressure <- append(rlist_high_pressure, r) #create a list of r values from the stuff; a range of these values will give you the good good
+  
+}
+
+```
