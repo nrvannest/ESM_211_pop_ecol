@@ -1,17 +1,26 @@
 ---
-title: "Bobcat Life Table"
+title: "Calculating Bobcat Life Table, Survival and Growth"
 author: "Nikole Vannest, Teague Tran, Alyssa Kibbe"
 date: "2/8/2022"
 output: html_document
 ---
-## S
+
+## The goal of this Rmd is to:
+
+1.  Calculate the survivorship of Bobcat age classes from population data.
+2.  Model survivorship to represent stochasticity by sampling survival values between each age class.
+3.  Determine survivorship under hunting, road pressure and low pressure (using both hunting and road pressure) to represent environmental pressures.
+4.  Run all four scenarios (no pressure, hunting, roads and both) with stochastic values (100 model iterations) as life tables to determine the growth rate for each iteration.
+5.  Visualize survivorship and variability in growth rate.
+
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 library(tidyverse)
 library(knitr)
 library(here)
 library(kableExtra)
-library(ggplot2)
+library(cowplot)
+library(dataRetrieval)
 
 options(scipen=999)  # Disable Scientific Notation
 ```
@@ -23,6 +32,7 @@ bobcat_data <- read.csv(here("data", "bobcats_lifetable.csv"), header = T)
 ```
 
 ### Calculate Survivorship
+
 ```{r convert to survivorship}
 # create empty list
 surv_data <- c()
@@ -41,6 +51,7 @@ colnames(bobcat_data) <- c("age",
 ```
 
 ### Fit survival to a curve
+
 ```{r fit survival to curve}
 # smooth survival data as curve
 
@@ -74,6 +85,7 @@ curve(survivorship,0,14, add = TRUE, col="blue")
 ```
 
 ### Create list of survival data points to sample from
+
 ```{r}
 # loop through survival to make list of potential points
 
@@ -124,8 +136,9 @@ bobcat_lifetable <- cbind(bobcat_survival, transposed_df)
 ```
 
 ### Reinsert 0-year survival
-```{r Insert first row of 1's}
-#create sequence to reinstert 1's for year 0 in first row
+
+```{r Insert first row of 1s}
+# create sequence to reinsert 1s for year 0 in first row
 ones <- seq(to = 1, from = 1, length.out = ncol(bobcat_lifetable))
 
 # add correct data to the first 3 columns
@@ -135,7 +148,85 @@ ones[1:3] <- c(0, 0, 1517)
 bobcat_lifetable <- rbind(ones, bobcat_lifetable)
 ```
 
-### Create Life Table
+### Calculate hunting and roadkill survival
+
+```{r calculate hunting and roadkill survival}
+# Use bobcat survival and subtract hunting and road kill mortality pressure
+
+hunting_low <- 0.1 #low hunting pressure
+hunting_high <- 0.3 #high hunting pressure
+
+roadkill_low <- 0.06 #low roadkill pressure
+roadkill_high <- 0.2 #high roadkill pressure
+
+#subtract low pressures from bobcat survival data
+low_pressure_survival <- bobcat_lifetable[,5:104]-(hunting_low+roadkill_low)
+low_pressure_survival <- cbind(bobcat_lifetable[,1:4], low_pressure_survival)
+
+#replace first row with 1s
+low_pressure_survival[1, 5:104] <- 1
+
+#remove negative data points
+low_pressure_survival[low_pressure_survival<0] <- 0
+
+# #subract high pressures from bobact survival data
+# high_pressure_survival <- bobcat_lifetable[,5:104]-(hunting_high+roadkill_high)
+# high_pressure_survival <- cbind(bobcat_lifetable[,1:4], high_pressure_survival)
+# 
+# #remove negative data points
+# high_pressure_survival[high_pressure_survival<0] <- 0
+
+#subract only road kill pressure
+road_pressure <- bobcat_lifetable[,5:104]-(roadkill_low)
+road_pressure <- cbind(bobcat_lifetable[,1:4], road_pressure)
+
+#replace first row with 1s
+road_pressure[1, 5:104] <- 1
+
+#remove negative data points
+road_pressure[road_pressure<0] <- 0
+
+#subract only road kill pressure
+hunting_pressure <- bobcat_lifetable[,5:104]-(hunting_low)
+hunting_pressure <- cbind(bobcat_lifetable[,1:4], hunting_pressure)
+
+#replace first row with 1s
+hunting_pressure[1, 5:104] <- 1
+
+#remove negative data points
+hunting_pressure[hunting_pressure<0] <- 0
+```
+
+### Plotting the different survival rates
+
+```{r Visualize average survival}
+mean_survival <- data.frame('age' = bobcat_lifetable$age,
+                            "noPressure" = rowMeans(bobcat_lifetable[5:104]),
+                            "lowPressure" = rowMeans(low_pressure_survival[5:104]),
+                            "lowHunting" = rowMeans(hunting_pressure[5:104]),
+                            "lowRoads" = rowMeans(road_pressure[5:104]))
+
+mean_longer <- mean_survival %>% pivot_longer(cols = c('noPressure', 'lowPressure', 'lowHunting', 'lowRoads'),
+                                              names_to = 'pressureType')
+
+plot_avg_survival <- mean_longer %>% ggplot(aes(x = age, color = pressureType)) + 
+  geom_point(aes(y = value, 
+                 shape = pressureType),
+             size = 3) +
+  xlab("Age (years)") +
+  ylab("Survival") +
+  ggtitle("Average Survival Rates with Stochastic Variability") +
+  theme(text = element_text(size = 16))
+
+plot_avg_survival
+
+ggsave("CompareAverageSurvival.png", plot = plot_avg_survival)
+```
+
+# Creating Lists of Average Growth Values
+
+### Create Life Table with No Pressure
+
 ```{r Create Life Table}
 #create iteration to calculate r; we are only interested in the R values! 
 rlist <- list()
@@ -162,43 +253,8 @@ while (abs(y-1) >= 0.000001) {
 }
 ```
 
-### Plotting the different modeled population
-```{r}
-ggplot(data = bobcat_lifetable,
-       aes(x = age,
-       y = survival))+
-  geom_point()+
-  geom_point(data = bobcat_lifetable,
-             aes(x=age,
-                 y = 1))
-```
-
-### Calculate hunting and roadkill survival
-```{r calculate hunting and roadkill survival}
-# Use bobcat survival and subtract hunting and road kill mortality pressure
-
-hunting_low <- 0.1 #low hunting pressure
-hunting_high <- 0.3 #high hunting pressure
-
-roadkill_low <- 0.06 #low roadkill pressure
-roadkill_high <- 0.2 #high roadkill pressure
-
-#subtract low pressures from bobcat survival data
-low_pressure_survival <- bobcat_lifetable[,5:104]-(hunting_low+roadkill_low)
-low_pressure_survival <- cbind(bobcat_lifetable[,1:4], low_pressure_survival)
-
-#remove negative data points
-low_pressure_survival[low_pressure_survival<0] <- 0
-
-#subract high pressures from bobact survival data
-high_pressure_survival <- bobcat_lifetable[,5:104]-(hunting_high+roadkill_high)
-high_pressure_survival <- cbind(bobcat_lifetable[,1:4], high_pressure_survival)
-
-#remove negative data points
-high_pressure_survival[high_pressure_survival<0] <- 0
-```
-
 ### Incorporate Low hunting and roadkill pressure to life table
+
 ```{r incorporate hunting and road kill to get growth rate for low_pressure}
 #create iteration to calculate r; we are only interested in the R values! 
 rlist_low_pressure <- list()
@@ -226,17 +282,18 @@ while (abs(y-1) >= 0.000001) {
 
 ```
 
-### Incorporate high hunting and road kill pressure to life table 
-```{r incorporate hunting and road kill to get growth rate for low_pressure}
+### Just hunting pressure
+
+```{r hunting pressure only}
 #create iteration to calculate r; we are only interested in the R values! 
-rlist_high_pressure <- list()
-for(i in 5:ncol(high_pressure_survival)) { #code to iterate across columns; goes from fifth column until it finishes!
-  lxmx <- high_pressure_survival$mx* high_pressure_survival[ , i] 
+rlist_hunting <- list()
+for(i in 5:ncol(hunting_pressure)) { #code to iterate across columns; goes from fifth column until it finishes!
+  lxmx <- hunting_pressure$mx* hunting_pressure[ , i] 
   R0 <- sum(lxmx)
-  G <- sum(high_pressure_survival$age*lxmx)/R0
+  G <- sum(hunting_pressure$age*lxmx)/R0
   approx.r <- log(R0)/G
   r <- mean(approx.r) #approximated growth rate from df
-  y <- sum(exp(-r*high_pressure_survival$age)*lxmx) # 
+  y <- sum(exp(-r*hunting_pressure$age)*lxmx) # 
   
 while (abs(y-1) >= 0.000001) {
   if (y-1>0){
@@ -245,11 +302,75 @@ while (abs(y-1) >= 0.000001) {
   else{
     r <- r-0.00000001
   }
-  y <- sum(exp(-r*high_pressure_survival$age)*lxmx)
+  y <- sum(exp(-r*hunting_pressure$age)*lxmx)
   r
 }
-  rlist_high_pressure <- append(rlist_high_pressure, r) #create a list of r values from the stuff; a range of these values will give you the good good
+  rlist_hunting <- append(rlist_hunting, r) #create a list of r values from the stuff; a range of these values will give you the good good
   
 }
+```
+
+### Just road kill pressure
+
+```{r roadkill pressure only}
+#create iteration to calculate r; we are only interested in the R values! 
+rlist_roadkill <- list()
+for(i in 5:ncol(road_pressure)) { #code to iterate across columns; goes from fifth column until it finishes!
+  lxmx <- road_pressure$mx* road_pressure[ , i] 
+  R0 <- sum(lxmx)
+  G <- sum(road_pressure$age*lxmx)/R0
+  approx.r <- log(R0)/G
+  r <- mean(approx.r) #approximated growth rate from df
+  y <- sum(exp(-r*road_pressure$age)*lxmx) # 
+  
+while (abs(y-1) >= 0.000001) {
+  if (y-1>0){
+    r <- r+0.00000001
+  }
+  else{
+    r <- r-0.00000001
+  }
+  y <- sum(exp(-r*road_pressure$age)*lxmx)
+  r
+}
+  rlist_roadkill <- append(rlist_roadkill, r) #create a list of r values from the stuff; a range of these values will give you the good good
+  
+}
+
+```
+
+### Create graph to display growth rates
+
+```{r Growth rate visual}
+#Combine rlists into data frame 
+r_df <- data.frame("modelRun" = c(1:100),
+                   "noEffect" = as.numeric(rlist),
+           "lowPressure" = as.numeric(rlist_low_pressure),
+           "huntingPressure" = as.numeric(rlist_hunting),
+           "roadPressure" = as.numeric(rlist_roadkill))
+
+names(r_df) <- c("modelRuns", "None","Low (16%)", "Low Hunting (10%)", "Low Road (6%)")
+
+# Convert it to long format so can use facet_wrap
+pressure_df <- r_df %>% pivot_longer(cols = c("None",
+                                              "Low (16%)",
+                                              "Low Hunting (10%)", 
+                                              "Low Road (6%)"), 
+                                     names_to = "pressureType")
+
+pressure_plot <- pressure_df %>% ggplot(aes(y = value, fill = pressureType)) + 
+  stat_boxplot(geom = 'errorbar', width = 0.15) +
+  geom_boxplot() +
+  facet_wrap(~pressureType, nrow = 1, ncol = 4) +
+  xlab("Pressure Type") +
+  ylab("Growth Rate") +
+  theme(legend.position = "none",
+        axis.ticks.x = element_blank(),
+        axis.text.x = element_blank(),
+        text = element_text(size = 12))
+
+pressure_plot
+
+ggsave("pressure_output.png", plot = pressure_plot)
 
 ```
