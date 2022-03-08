@@ -21,6 +21,7 @@ library(here)
 library(kableExtra)
 library(cowplot)
 library(dataRetrieval)
+library(magick)
 
 options(scipen=999)  # Disable Scientific Notation
 ```
@@ -220,7 +221,7 @@ plot_avg_survival <- mean_longer %>% ggplot(aes(x = age, color = pressureType)) 
 
 plot_avg_survival
 
-ggsave("CompareAverageSurvival.png", plot = plot_avg_survival)
+#ggsave("CompareAverageSurvival.png", plot = plot_avg_survival)
 ```
 
 # Creating Lists of Average Growth Values
@@ -371,6 +372,26 @@ pressure_plot <- pressure_df %>% ggplot(aes(y = value, fill = pressureType)) +
 
 pressure_plot
 
-ggsave("pressure_output.png", plot = pressure_plot)
+#ggsave("pressure_output.png", plot = pressure_plot)
 
 ```
+
+### Create table of growth values
+```{r Growth value table}
+growth_table <- rbind(summary(as.numeric(rlist)),
+      summary(as.numeric(rlist_roadkill)),
+      summary(as.numeric(rlist_hunting)),
+      summary(as.numeric(rlist_low_pressure)))
+
+rownames(growth_table) <- c("None", "Roadkill", "Hunting", "Both")
+colnames(growth_table) <- names(summary(as.numeric(rlist)))
+
+growth_kable <- growth_table %>% round(2) %>% 
+  kbl(format = 'html') %>% 
+  kable_styling()
+
+growth_kable
+
+#save_kable(growth_kable, file = "growth_kable.png")
+```
+
